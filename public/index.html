@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>QueueSync — Skip the Line</title>
+<style>
+  :root { --brand:#1a73e8; --ok:#188038; --bg:#f5f7fb; --card:#fff; --muted:#5f6368; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:#202124; }
+  header { background:var(--brand); color:#fff; padding:16px 20px; }
+  header h1 { margin:0; font-size:20px; }
+  header p { margin:4px 0 0; opacity:.9; font-size:13px; }
+  main { max-width:560px; margin:0 auto; padding:16px; }
+  .card { background:var(--card); border-radius:14px; padding:18px; margin-bottom:14px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
+  select, input, textarea, button { width:100%; padding:12px; border:1px solid #dadce0; border-radius:10px; font-size:15px; font-family:inherit; }
+  button { background:var(--brand); color:#fff; border:none; font-weight:600; cursor:pointer; margin-top:14px; }
+  button.secondary { background:#eef2fb; color:var(--brand); }
+  button:active { transform:scale(.99); }
+  .row { display:flex; gap:10px; }
+  .big-num { font-size:52px; font-weight:800; color:var(--brand); line-height:1; }
+  .now-serving { font-size:34px; font-weight:800; color:var(--ok); }
+  .stat { text-align:center; flex:1; }
+  .stat .lbl { font-size:12px; color:var(--muted); }
+  .hidden { display:none; }
+  .checklist li { margin:6px 0; font-size:14px; }
+  .pill { display:inline-block; background:#e8f0fe; color:var(--brand); padding:3px 10px; border-radius:20px; font-size:12px; }
+  .msg { background:#e6f4ea; color:#188038; padding:10px 12px; border-radius:10px; font-size:14px; margin-top:10px; }
+  .mic { display:flex; align-items:center; gap:8px; }
+  .langbar { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+  .langbar span { font-size:12px; color:var(--muted); padding:4px 8px; border:1px solid #dadce0; border-radius:16px; cursor:pointer; }
+  .langbar span.active { background:var(--brand); color:#fff; border-color:var(--brand); }
+  small.muted { color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎫 QueueSync</h1>
+  <p>Book your token, track the live queue, arrive just in time.</p>
+</header>
+<main>
+  <!-- BOOKING -->
+  <section id="booking" class="card">
+    <div class="langbar" id="langbar">
+      <span data-lang="en" class="active">English</span>
+      <span data-lang="hi">हिंदी</span>
+      <span data-lang="te">తెలుగు</span>
+    </div>
+
+    <label>Service Center</label>
+    <select id="center"></select>
+
+    <label>What do you need? (type or speak in any language)</label>
+    <div class="mic">
+      <textarea id="intake" rows="2" placeholder="e.g. I need to update my date of birth"></textarea>
+    </div>
+    <div class="row">
+      <button class="secondary" id="micBtn" type="button">🎤 Speak</button>
+      <button class="secondary" id="detectBtn" type="button">✨ Detect service</button>
+    </div>
+
+    <label>Service</label>
+    <select id="service"></select>
+
+    <label>Your name (optional)</label>
+    <input id="name" placeholder="Name" />
+
+    <button id="bookBtn">Get my token</button>
+    <p><small class="muted">No app download needed. Scan a QR at the center or open this link.</small></p>
+  </section>
+
+  <!-- CHECKLIST -->
+  <section id="checklistCard" class="card hidden">
+    <h3>📋 Bring these documents</h3>
+    <ul class="checklist" id="checklist"></ul>
+  </section>
+
+  <!-- LIVE STATUS -->
+  <section id="statusCard" class="card hidden">
+    <div class="row">
+      <div class="stat"><div class="lbl">Now serving</div><div class="now-serving" id="nowServing">—</div></div>
+      <div class="stat"><div class="lbl">Your token</div><div class="big-num" id="myToken">—</div></div>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <div class="stat"><div class="lbl">Ahead of you</div><div id="ahead" style="font-size:24px;font-weight:700">—</div></div>
+      <div class="stat"><div class="lbl">Est. wait</div><div id="wait" style="font-size:24px;font-weight:700">—</div></div>
+    </div>
+    <div class="msg" id="aiMsg"></div>
+    <div id="leaveNow" class="msg hidden" style="background:#fce8e6;color:#c5221f;font-weight:600"></div>
+    <button class="secondary" id="pushBtn">Running late — push me back 3 spots</button>
+    <p><small class="muted">Live-synced. You'll be alerted when you're 5 numbers away.</small></p>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let lang = 'en';
+let myTokenId = null;
+let myTokenNumber = null;
+let currentCenter = null;
+let ws = null;
+let alerted = false;
+
+const SERVICES = {
+  aadhaar_new: 'New Aadhaar Enrolment',
+  aadhaar_update_bio: 'Biometric Update (photo/fingerprint)',
+  aadhaar_update_demo: 'Demographic Update (name/address)',
+  aadhaar_dob: 'Date of Birth Update',
+  general: 'General Service',
+};
+
+// Populate service dropdown
+for (const [k, v] of Object.entries(SERVICES)) {
+  const o = document.createElement('option');
+  o.value = k; o.textContent = v; $('service').appendChild(o);
+}
+
+// Language toggle
+$('langbar').addEventListener('click', (e) => {
+  if (!e.target.dataset.lang) return;
+  lang = e.target.dataset.lang;
+  [...$('langbar').children].forEach((c) => c.classList.toggle('active', c === e.target));
+});
+
+// Load centers
+fetch('/api/centers').then((r) => r.json()).then((centers) => {
+  centers.forEach((c) => {
+    const o = document.createElement('option');
+    o.value = c.id; o.textContent = c.name; $('center').appendChild(o);
+  });
+});
+
+// Voice input via Web Speech API (maps to Cloud Speech-to-Text in production)
+$('micBtn').addEventListener('click', () => {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert('Voice not supported in this browser — please type.'); return; }
+  const rec = new SR();
+  rec.lang = { en: 'en-IN', hi: 'hi-IN', te: 'te-IN' }[lang] || 'en-IN';
+  rec.onresult = (e) => { $('intake').value = e.results[0][0].transcript; detectService(); };
+  rec.start();
+  $('micBtn').textContent = '🎙️ Listening...';
+  rec.onend = () => ($('micBtn').textContent = '🎤 Speak');
+});
+
+$('detectBtn').addEventListener('click', detectService);
+
+async function detectService() {
+  const text = $('intake').value.trim();
+  if (!text) return;
+  $('detectBtn').textContent = '…';
+  try {
+    const r = await fetch('/api/intake', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    const intent = await r.json();
+    if (intent.service) $('service').value = intent.service;
+    if (intent.language) {
+      lang = intent.language;
+      [...$('langbar').children].forEach((c) => c.classList.toggle('active', c.dataset.lang === lang));
+    }
+  } finally {
+    $('detectBtn').textContent = '✨ Detect service';
+  }
+}
+
+$('bookBtn').addEventListener('click', async () => {
+  const centerId = $('center').value;
+  const body = { service: $('service').value, name: $('name').value, language: lang, source: 'web' };
+  const r = await fetch(`/api/centers/${centerId}/tokens`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  const data = await r.json();
+  myTokenId = data.token.id;
+  myTokenNumber = data.token.number;
+  currentCenter = centerId;
+
+  // Show checklist
+  $('checklist').innerHTML = '';
+  data.token.checklist.forEach((item) => {
+    const li = document.createElement('li'); li.textContent = item; $('checklist').appendChild(li);
+  });
+  $('checklistCard').classList.remove('hidden');
+
+  $('myToken').textContent = myTokenNumber;
+  $('aiMsg').textContent = data.message;
+  $('statusCard').classList.remove('hidden');
+  $('booking').classList.add('hidden');
+  $('statusCard').scrollIntoView({ behavior: 'smooth' });
+
+  connectLive(centerId);
+});
+
+$('pushBtn').addEventListener('click', async () => {
+  const r = await fetch(`/api/tokens/${myTokenId}/pushback`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spots: 3 }),
+  });
+  const s = await r.json();
+  myTokenNumber = s.token.number;
+  $('myToken').textContent = myTokenNumber;
+  refreshStatus();
+});
+
+function connectLive(centerId) {
+  const protocol = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${protocol}://${location.host}`);
+  ws.onopen = () => ws.send(JSON.stringify({ type: 'subscribe', centerId }));
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data);
+    if (msg.type === 'center_update') {
+      $('nowServing').textContent = msg.nowServing ?? '—';
+      const ahead = msg.waiting.filter((t) => t.number < myTokenNumber).length;
+      $('ahead').textContent = ahead;
+      const avg = msg.center.avgServiceSeconds || 300;
+      $('wait').textContent = Math.round((ahead * avg) / 60) + ' min';
+
+      // "Leave now" alert when 5 numbers away
+      if (ahead <= 5 && ahead > 0 && !alerted) {
+        alerted = true;
+        $('leaveNow').textContent = '🚶 Head to the center now — you are ' + ahead + ' spots away!';
+        $('leaveNow').classList.remove('hidden');
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      }
+      if (msg.nowServing === myTokenNumber) {
+        $('leaveNow').textContent = '✅ It is your turn — please go to the counter.';
+        $('leaveNow').classList.remove('hidden');
+      }
+    }
+  };
+}
+
+async function refreshStatus() {
+  if (!myTokenId) return;
+  const r = await fetch(`/api/tokens/${myTokenId}`);
+  if (!r.ok) return;
+  const s = await r.json();
+  $('nowServing').textContent = s.nowServing ?? '—';
+  $('ahead').textContent = s.position;
+  $('wait').textContent = Math.round(s.estimateWaitSeconds / 60) + ' min';
+}
+</script>
+</body>
+</html>

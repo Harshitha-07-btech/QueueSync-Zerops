@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>QueueSync — Operator</title>
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Roboto,sans-serif; background:#202124; color:#e8eaed; }
+  header { background:#111; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; }
+  header h1 { margin:0; font-size:18px; }
+  main { max-width:720px; margin:0 auto; padding:20px; }
+  select { padding:10px; border-radius:8px; border:1px solid #5f6368; background:#303134; color:#e8eaed; font-size:15px; }
+  .serving { background:#188038; border-radius:16px; padding:28px; text-align:center; margin:18px 0; }
+  .serving .num { font-size:80px; font-weight:800; line-height:1; }
+  .serving .lbl { opacity:.85; }
+  .next-btn { width:100%; padding:22px; font-size:22px; font-weight:800; background:#1a73e8; color:#fff; border:none; border-radius:16px; cursor:pointer; }
+  .next-btn:active { transform:scale(.99); }
+  .queue { margin-top:20px; }
+  .qitem { display:flex; justify-content:space-between; align-items:center; background:#303134; padding:12px 16px; border-radius:10px; margin-bottom:8px; }
+  .qnum { font-size:22px; font-weight:700; }
+  .src { font-size:11px; padding:2px 8px; border-radius:12px; }
+  .src.web { background:#1a73e8; } .src.qr { background:#9334e6; } .src.walkin { background:#e37400; } .src.whatsapp { background:#188038; }
+  .walkin-row { display:flex; gap:8px; margin-top:16px; }
+  .walkin-row select, .walkin-row button { flex:1; }
+  .walkin-row button { background:#e37400; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer; }
+  .stats { display:flex; gap:12px; margin-top:16px; }
+  .stat { flex:1; background:#303134; border-radius:10px; padding:12px; text-align:center; }
+  .stat .v { font-size:24px; font-weight:700; } .stat .l { font-size:12px; opacity:.7; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🖥️ QueueSync — Operator Console</h1>
+  <select id="center"></select>
+</header>
+<main>
+  <div class="serving">
+    <div class="lbl">NOW SERVING</div>
+    <div class="num" id="nowServing">—</div>
+  </div>
+  <button class="next-btn" id="nextBtn">▶ Next Token</button>
+
+  <div class="stats">
+    <div class="stat"><div class="v" id="waitingCount">0</div><div class="l">Waiting</div></div>
+    <div class="stat"><div class="v" id="avgTime">—</div><div class="l">Avg service</div></div>
+    <div class="stat"><div class="v" id="counters">1</div><div class="l">Counters</div></div>
+  </div>
+
+  <div class="walkin-row">
+    <select id="walkinService">
+      <option value="general">General Service</option>
+      <option value="aadhaar_update_bio">Biometric Update</option>
+      <option value="aadhaar_update_demo">Demographic Update</option>
+      <option value="aadhaar_dob">DOB Update</option>
+      <option value="aadhaar_new">New Enrolment</option>
+    </select>
+    <button id="walkinBtn">+ Add Walk-in</button>
+  </div>
+
+  <div class="queue" id="queue"></div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let centerId = null;
+let ws = null;
+
+fetch('/api/centers').then((r) => r.json()).then((centers) => {
+  centers.forEach((c) => {
+    const o = document.createElement('option');
+    o.value = c.id; o.textContent = c.name; $('center').appendChild(o);
+  });
+  centerId = centers[0]?.id;
+  connect();
+});
+
+$('center').addEventListener('change', () => { centerId = $('center').value; connect(); });
+
+$('nextBtn').addEventListener('click', () => {
+  fetch(`/api/centers/${centerId}/advance`, { method: 'POST' });
+});
+
+$('walkinBtn').addEventListener('click', () => {
+  fetch(`/api/centers/${centerId}/walkin`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ service: $('walkinService').value }),
+  });
+});
+
+function connect() {
+  if (ws) ws.close();
+
+  const protocol = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${protocol}://${location.host}`);
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({
+      type: "subscribe",
+      centerId
+    }));
+  };
+
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data);
+
+    if (msg.type !== "center_update") return;
+
+    $("nowServing").textContent = msg.nowServing ?? "—";
+    $("waitingCount").textContent = msg.center.waitingCount;
+    $("avgTime").textContent =
+      Math.round((msg.center.avgServiceSeconds || 300) / 60) + "m";
+    $("counters").textContent = msg.center.counters;
+
+    $("queue").innerHTML = "";
+
+    msg.waiting.forEach((t) => {
+      const div = document.createElement("div");
+      div.className = "qitem";
+      div.innerHTML = `
+        <span class="qnum">#${t.number}</span>
+        <span class="src ${t.source}">${t.source}</span>
+      `;
+      $("queue").appendChild(div);
+    });
+  };
+
+  ws.onerror = (err) => console.error("WebSocket Error:", err);
+  ws.onclose = () => console.log("WebSocket Closed");
+}
+</script>
+</body>
+</html>
