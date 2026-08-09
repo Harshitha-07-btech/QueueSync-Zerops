@@ -16,6 +16,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "express": "^5.2.1",
+    "firebase-admin": "^14.2.0",
     "ws": "^8.21.0"
   }
 }

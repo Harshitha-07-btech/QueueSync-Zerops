@@ -4,49 +4,343 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>QueueSync — Operator</title>
+
 <style>
-  * { box-sizing:border-box; }
-  body { margin:0; font-family:system-ui,-apple-system,Roboto,sans-serif; background:#202124; color:#e8eaed; }
-  header { background:#111; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; }
-  header h1 { margin:0; font-size:18px; }
-  main { max-width:720px; margin:0 auto; padding:20px; }
-  select { padding:10px; border-radius:8px; border:1px solid #5f6368; background:#303134; color:#e8eaed; font-size:15px; }
-  .serving { background:#188038; border-radius:16px; padding:28px; text-align:center; margin:18px 0; }
-  .serving .num { font-size:80px; font-weight:800; line-height:1; }
-  .serving .lbl { opacity:.85; }
-  .next-btn { width:100%; padding:22px; font-size:22px; font-weight:800; background:#1a73e8; color:#fff; border:none; border-radius:16px; cursor:pointer; }
-  .next-btn:active { transform:scale(.99); }
-  .queue { margin-top:20px; }
-  .qitem { display:flex; justify-content:space-between; align-items:center; background:#303134; padding:12px 16px; border-radius:10px; margin-bottom:8px; }
-  .qnum { font-size:22px; font-weight:700; }
-  .src { font-size:11px; padding:2px 8px; border-radius:12px; }
-  .src.web { background:#1a73e8; } .src.qr { background:#9334e6; } .src.walkin { background:#e37400; } .src.whatsapp { background:#188038; }
-  .walkin-row { display:flex; gap:8px; margin-top:16px; }
-  .walkin-row select, .walkin-row button { flex:1; }
-  .walkin-row button { background:#e37400; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer; }
-  .stats { display:flex; gap:12px; margin-top:16px; }
-  .stat { flex:1; background:#303134; border-radius:10px; padding:12px; text-align:center; }
-  .stat .v { font-size:24px; font-weight:700; } .stat .l { font-size:12px; opacity:.7; }
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, Roboto, sans-serif;
+    background: #202124;
+    color: #e8eaed;
+  }
+
+  header {
+    background: #111;
+    padding: 14px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
+  header h1 {
+    margin: 0;
+    font-size: 18px;
+  }
+
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  select {
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #5f6368;
+    background: #303134;
+    color: #e8eaed;
+    font-size: 15px;
+  }
+
+  .serving {
+    background: #188038;
+    border-radius: 16px;
+    padding: 28px;
+    text-align: center;
+    margin: 18px 0;
+  }
+
+  .serving .num {
+    font-size: 80px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .serving .lbl {
+    opacity: .85;
+  }
+
+  .next-btn {
+    width: 100%;
+    padding: 22px;
+    font-size: 22px;
+    font-weight: 800;
+    background: #1a73e8;
+    color: #fff;
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+  }
+
+  .next-btn:active {
+    transform: scale(.99);
+  }
+
+  .next-btn:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+  }
+
+  .queue {
+    margin-top: 20px;
+  }
+
+  .queue-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+
+  .qitem {
+    background: #303134;
+    padding: 14px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+  }
+
+  .qtop {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .qnum {
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  .qservice {
+    font-size: 12px;
+    opacity: .75;
+    margin-top: 3px;
+  }
+
+  .src {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    white-space: nowrap;
+  }
+
+  .src.web {
+    background: #1a73e8;
+  }
+
+  .src.qr {
+    background: #9334e6;
+  }
+
+  .src.walkin {
+    background: #e37400;
+  }
+
+  .src.whatsapp {
+    background: #188038;
+  }
+
+  .src.unknown {
+    background: #5f6368;
+  }
+
+  .qactions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .reason-select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .reschedule-btn {
+    padding: 10px 14px;
+    background: #9334e6;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .reschedule-btn:hover {
+    opacity: .9;
+  }
+
+  .reschedule-btn:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+  }
+
+  .walkin-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .walkin-row select,
+  .walkin-row button {
+    flex: 1;
+  }
+
+  .walkin-row button {
+    background: #e37400;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .walkin-row button:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+  }
+
+  .stats {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .stat {
+    flex: 1;
+    background: #303134;
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .stat .v {
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  .stat .l {
+    font-size: 12px;
+    opacity: .7;
+  }
+
+  /* Notification */
+  .notification {
+    display: none;
+    margin-top: 16px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .notification.success {
+    display: block;
+    background: #188038;
+    color: #fff;
+  }
+
+  .notification.error {
+    display: block;
+    background: #b3261e;
+    color: #fff;
+  }
+
+  .notification.info {
+    display: block;
+    background: #1a73e8;
+    color: #fff;
+  }
+
+  .empty {
+    background: #303134;
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    opacity: .7;
+  }
+
+  @media (max-width: 600px) {
+    header {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    header h1 {
+      font-size: 16px;
+    }
+
+    .qactions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .reason-select,
+    .reschedule-btn {
+      width: 100%;
+    }
+
+    .stats {
+      gap: 6px;
+    }
+
+    .stat {
+      padding: 10px 5px;
+    }
+
+    .stat .v {
+      font-size: 20px;
+    }
+  }
 </style>
 </head>
+
 <body>
+
 <header>
   <h1>🖥️ QueueSync — Operator Console</h1>
   <select id="center"></select>
 </header>
+
 <main>
+
+  <!-- Notification -->
+  <div id="notification" class="notification"></div>
+
+  <!-- Currently serving -->
   <div class="serving">
     <div class="lbl">NOW SERVING</div>
     <div class="num" id="nowServing">—</div>
   </div>
-  <button class="next-btn" id="nextBtn">▶ Next Token</button>
 
+  <!-- Next token -->
+  <button class="next-btn" id="nextBtn">
+    ▶ Next Token
+  </button>
+
+  <!-- Statistics -->
   <div class="stats">
-    <div class="stat"><div class="v" id="waitingCount">0</div><div class="l">Waiting</div></div>
-    <div class="stat"><div class="v" id="avgTime">—</div><div class="l">Avg service</div></div>
-    <div class="stat"><div class="v" id="counters">1</div><div class="l">Counters</div></div>
+    <div class="stat">
+      <div class="v" id="waitingCount">0</div>
+      <div class="l">Waiting</div>
+    </div>
+
+    <div class="stat">
+      <div class="v" id="avgTime">—</div>
+      <div class="l">Avg service</div>
+    </div>
+
+    <div class="stat">
+      <div class="v" id="counters">1</div>
+      <div class="l">Counters</div>
+    </div>
   </div>
 
+  <!-- Walk-in -->
   <div class="walkin-row">
     <select id="walkinService">
       <option value="general">General Service</option>
@@ -55,79 +349,789 @@
       <option value="aadhaar_dob">DOB Update</option>
       <option value="aadhaar_new">New Enrolment</option>
     </select>
-    <button id="walkinBtn">+ Add Walk-in</button>
+
+    <button id="walkinBtn">
+      + Add Walk-in
+    </button>
   </div>
 
-  <div class="queue" id="queue"></div>
+  <!-- Queue -->
+  <div class="queue">
+    <div class="queue-title">
+      Waiting Queue
+    </div>
+
+    <div id="queue"></div>
+  </div>
+
 </main>
 
 <script>
-const $ = (id) => document.getElementById(id);
+const $ = (id) =>
+  document.getElementById(id);
+
 let centerId = null;
 let ws = null;
 
-fetch('/api/centers').then((r) => r.json()).then((centers) => {
-  centers.forEach((c) => {
-    const o = document.createElement('option');
-    o.value = c.id; o.textContent = c.name; $('center').appendChild(o);
+/* ---------------------------------------------------------
+   Notification helper
+--------------------------------------------------------- */
+
+let notificationTimer = null;
+
+function showNotification(
+  message,
+  type = "info"
+) {
+  const box =
+    $("notification");
+
+  box.className =
+    `notification ${type}`;
+
+  box.textContent =
+    message;
+
+  clearTimeout(
+    notificationTimer
+  );
+
+  notificationTimer =
+    setTimeout(() => {
+      box.className =
+        "notification";
+      box.textContent = "";
+    }, 7000);
+}
+
+/* ---------------------------------------------------------
+   Load centers
+--------------------------------------------------------- */
+
+fetch("/api/centers")
+  .then((r) => {
+    if (!r.ok) {
+      throw new Error(
+        "Failed to load centers"
+      );
+    }
+
+    return r.json();
+  })
+  .then((centers) => {
+
+    $("center").innerHTML = "";
+
+    centers.forEach((c) => {
+      const option =
+        document.createElement(
+          "option"
+        );
+
+      option.value = c.id;
+      option.textContent =
+        c.name;
+
+      $("center")
+        .appendChild(option);
+    });
+
+    centerId =
+      centers[0]?.id || null;
+
+    if (centerId) {
+      connect();
+    }
+  })
+  .catch((error) => {
+    console.error(error);
+
+    showNotification(
+      "Unable to load centers.",
+      "error"
+    );
   });
-  centerId = centers[0]?.id;
-  connect();
-});
 
-$('center').addEventListener('change', () => { centerId = $('center').value; connect(); });
+/* ---------------------------------------------------------
+   Center change
+--------------------------------------------------------- */
 
-$('nextBtn').addEventListener('click', () => {
-  fetch(`/api/centers/${centerId}/advance`, { method: 'POST' });
-});
+$("center")
+  .addEventListener(
+    "change",
+    () => {
+      centerId =
+        $("center").value;
 
-$('walkinBtn').addEventListener('click', () => {
-  fetch(`/api/centers/${centerId}/walkin`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ service: $('walkinService').value }),
-  });
-});
+      connect();
+    }
+  );
+
+/* ---------------------------------------------------------
+   Next Token
+--------------------------------------------------------- */
+
+$("nextBtn")
+  .addEventListener(
+    "click",
+    async () => {
+
+      if (!centerId) {
+        showNotification(
+          "Please select a center.",
+          "error"
+        );
+
+        return;
+      }
+
+      const button =
+        $("nextBtn");
+
+      button.disabled = true;
+
+      try {
+
+        const response =
+          await fetch(
+            `/api/centers/${centerId}/advance`,
+            {
+              method: "POST"
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.error ||
+            "Unable to advance token"
+          );
+        }
+
+      } catch (error) {
+
+        console.error(error);
+
+        showNotification(
+          error.message,
+          "error"
+        );
+
+      } finally {
+
+        button.disabled = false;
+      }
+    }
+  );
+
+/* ---------------------------------------------------------
+   Walk-in
+--------------------------------------------------------- */
+
+$("walkinBtn")
+  .addEventListener(
+    "click",
+    async () => {
+
+      if (!centerId) {
+        showNotification(
+          "Please select a center.",
+          "error"
+        );
+
+        return;
+      }
+
+      const button =
+        $("walkinBtn");
+
+      button.disabled = true;
+
+      try {
+
+        const response =
+          await fetch(
+            `/api/centers/${centerId}/walkin`,
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json"
+              },
+
+              body:
+                JSON.stringify({
+                  service:
+                    $("walkinService")
+                      .value
+                })
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.error ||
+            "Unable to add walk-in"
+          );
+        }
+
+        showNotification(
+          `Walk-in token ${data.token.number} added successfully.`,
+          "success"
+        );
+
+      } catch (error) {
+
+        console.error(error);
+
+        showNotification(
+          error.message,
+          "error"
+        );
+
+      } finally {
+
+        button.disabled = false;
+      }
+    }
+  );
+
+/* ---------------------------------------------------------
+   Reschedule token
+--------------------------------------------------------- */
+
+async function rescheduleToken(
+  tokenId,
+  tokenNumber,
+  reason
+) {
+
+  if (!tokenId) {
+    showNotification(
+      "Token ID is missing.",
+      "error"
+    );
+
+    return;
+  }
+
+  if (!centerId) {
+    showNotification(
+      "Please select a center.",
+      "error"
+    );
+
+    return;
+  }
+
+  const confirmed =
+    confirm(
+      `Reschedule token #${tokenNumber} to the next day?`
+    );
+
+  if (!confirmed) {
+    return;
+  }
+
+  const button =
+    document.querySelector(
+      `[data-token-id="${CSS.escape(tokenId)}"]`
+    );
+
+  if (button) {
+    button.disabled = true;
+    button.textContent =
+      "Rescheduling...";
+  }
+
+  try {
+
+    const response =
+      await fetch(
+        `/api/tokens/${encodeURIComponent(tokenId)}/reschedule`,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body:
+            JSON.stringify({
+              reason
+            })
+        }
+      );
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error ||
+        "Unable to reschedule token"
+      );
+    }
+
+    const newToken =
+      data.priorityToken;
+
+    const newNumber =
+      newToken?.number ||
+      "P1";
+
+    const newDate =
+      data.toDate ||
+      newToken?.queueDate ||
+      "next day";
+
+    showNotification(
+      `✅ Token #${tokenNumber} rescheduled successfully. New priority token: ${newNumber}. New date: ${newDate}.`,
+      "success"
+    );
+
+    /*
+      The server also broadcasts a center_update,
+      so the old token will disappear automatically.
+    */
+
+  } catch (error) {
+
+    console.error(
+      "Reschedule error:",
+      error
+    );
+
+    showNotification(
+      `Reschedule failed: ${error.message}`,
+      "error"
+    );
+
+    if (button) {
+      button.disabled = false;
+      button.textContent =
+        "↪ Reschedule";
+    }
+  }
+}
+
+/* ---------------------------------------------------------
+   Create queue item
+--------------------------------------------------------- */
+
+function createQueueItem(token) {
+
+  const div =
+    document.createElement(
+      "div"
+    );
+
+  div.className =
+    "qitem";
+
+  /*
+    Top section
+  */
+
+  const top =
+    document.createElement(
+      "div"
+    );
+
+  top.className =
+    "qtop";
+
+  const left =
+    document.createElement(
+      "div"
+    );
+
+  const number =
+    document.createElement(
+      "div"
+    );
+
+  number.className =
+    "qnum";
+
+  number.textContent =
+    `#${token.number}`;
+
+  const service =
+    document.createElement(
+      "div"
+    );
+
+  service.className =
+    "qservice";
+
+  service.textContent =
+    token.service ||
+    "General Service";
+
+  left.appendChild(number);
+  left.appendChild(service);
+
+  const source =
+    document.createElement(
+      "span"
+    );
+
+  const sourceName =
+    token.source ||
+    "unknown";
+
+  source.className =
+    `src ${sourceName}`;
+
+  source.textContent =
+    sourceName;
+
+  top.appendChild(left);
+  top.appendChild(source);
+
+  /*
+    Actions
+  */
+
+  const actions =
+    document.createElement(
+      "div"
+    );
+
+  actions.className =
+    "qactions";
+
+  /*
+    Reason dropdown
+  */
+
+  const reasonSelect =
+    document.createElement(
+      "select"
+    );
+
+  reasonSelect.className =
+    "reason-select";
+
+  const reasons = [
+    {
+      value:
+        "additional_document",
+      label:
+        "Additional document required"
+    },
+
+    {
+      value:
+        "center_issue",
+      label:
+        "Center issue"
+    },
+
+    {
+      value:
+        "citizen_unavailable",
+      label:
+        "Citizen unavailable"
+    },
+
+    {
+      value:
+        "other",
+      label:
+        "Other"
+    }
+  ];
+
+  reasons.forEach(
+    (reason) => {
+
+      const option =
+        document.createElement(
+          "option"
+        );
+
+      option.value =
+        reason.value;
+
+      option.textContent =
+        reason.label;
+
+      reasonSelect
+        .appendChild(option);
+    }
+  );
+
+  /*
+    Reschedule button
+  */
+
+  const rescheduleButton =
+    document.createElement(
+      "button"
+    );
+
+  rescheduleButton.type =
+    "button";
+
+  rescheduleButton.className =
+    "reschedule-btn";
+
+  rescheduleButton.textContent =
+    "↪ Reschedule";
+
+  /*
+    IMPORTANT:
+    This token ID comes from the WebSocket
+    data sent by server.js.
+  */
+
+  rescheduleButton.dataset.tokenId =
+    token.id ||
+    token.tokenId ||
+    "";
+
+  rescheduleButton.addEventListener(
+    "click",
+    () => {
+
+      const selectedReason =
+        reasonSelect.value;
+
+      rescheduleToken(
+        token.id ||
+          token.tokenId,
+        token.number,
+        selectedReason
+      );
+    }
+  );
+
+  actions.appendChild(
+    reasonSelect
+  );
+
+  actions.appendChild(
+    rescheduleButton
+  );
+
+  div.appendChild(top);
+  div.appendChild(actions);
+
+  return div;
+}
+
+/* ---------------------------------------------------------
+   WebSocket connection
+--------------------------------------------------------- */
 
 function connect() {
-  if (ws) ws.close();
 
-  const protocol = location.protocol === "https:" ? "wss" : "ws";
-  ws = new WebSocket(`${protocol}://${location.host}`);
+  if (!centerId) {
+    return;
+  }
+
+  if (ws) {
+    try {
+      ws.close();
+    } catch (_) {}
+  }
+
+  const protocol =
+    location.protocol === "https:"
+      ? "wss"
+      : "ws";
+
+  ws =
+    new WebSocket(
+      `${protocol}://${location.host}`
+    );
 
   ws.onopen = () => {
-    ws.send(JSON.stringify({
-      type: "subscribe",
-      centerId
-    }));
+
+    console.log(
+      "WebSocket connected"
+    );
+
+    ws.send(
+      JSON.stringify({
+        type:
+          "subscribe",
+
+        centerId
+      })
+    );
   };
 
-  ws.onmessage = (ev) => {
-    const msg = JSON.parse(ev.data);
+  ws.onmessage =
+    (ev) => {
 
-    if (msg.type !== "center_update") return;
+      try {
 
-    $("nowServing").textContent = msg.nowServing ?? "—";
-    $("waitingCount").textContent = msg.center.waitingCount;
-    $("avgTime").textContent =
-      Math.round((msg.center.avgServiceSeconds || 300) / 60) + "m";
-    $("counters").textContent = msg.center.counters;
+        const msg =
+          JSON.parse(
+            ev.data
+          );
 
-    $("queue").innerHTML = "";
+        /*
+          Normal live queue update
+        */
 
-    msg.waiting.forEach((t) => {
-      const div = document.createElement("div");
-      div.className = "qitem";
-      div.innerHTML = `
-        <span class="qnum">#${t.number}</span>
-        <span class="src ${t.source}">${t.source}</span>
-      `;
-      $("queue").appendChild(div);
-    });
-  };
+        if (
+          msg.type ===
+          "center_update"
+        ) {
 
-  ws.onerror = (err) => console.error("WebSocket Error:", err);
-  ws.onclose = () => console.log("WebSocket Closed");
+          updateQueue(msg);
+
+          return;
+        }
+
+        /*
+          Token rescheduled notification
+        */
+
+        if (
+          msg.type ===
+          "token_rescheduled"
+        ) {
+
+          const originalNumber =
+            msg.originalToken?.number ??
+            "—";
+
+          const newNumber =
+            msg.priorityToken?.number ??
+            "P1";
+
+          const newDate =
+            msg.toDate ||
+            msg.priorityToken?.queueDate ||
+            "next day";
+
+          showNotification(
+            `🔔 Token #${originalNumber} was rescheduled. New priority token: ${newNumber}. New date: ${newDate}.`,
+            "info"
+          );
+
+          return;
+        }
+
+      } catch (error) {
+
+        console.error(
+          "WebSocket message error:",
+          error
+        );
+      }
+    };
+
+  ws.onerror =
+    (error) => {
+      console.error(
+        "WebSocket Error:",
+        error
+      );
+    };
+
+  ws.onclose =
+    () => {
+
+      console.log(
+        "WebSocket Closed"
+      );
+    };
+}
+
+/* ---------------------------------------------------------
+   Update queue UI
+--------------------------------------------------------- */
+
+function updateQueue(msg) {
+
+  $("nowServing")
+    .textContent =
+      msg.nowServing ??
+      "—";
+
+  $("waitingCount")
+    .textContent =
+      msg.center?.waitingCount ??
+      msg.waiting?.length ??
+      0;
+
+  $("avgTime")
+    .textContent =
+      Math.round(
+        (
+          msg.center
+            ?.avgServiceSeconds ||
+          300
+        ) / 60
+      ) + "m";
+
+  $("counters")
+    .textContent =
+      msg.center?.counters ??
+      1;
+
+  const queue =
+    $("queue");
+
+  queue.innerHTML = "";
+
+  const waiting =
+    Array.isArray(
+      msg.waiting
+    )
+      ? msg.waiting
+      : [];
+
+  if (
+    waiting.length === 0
+  ) {
+
+    const empty =
+      document.createElement(
+        "div"
+      );
+
+    empty.className =
+      "empty";
+
+    empty.textContent =
+      "No tokens waiting.";
+
+    queue.appendChild(
+      empty
+    );
+
+    return;
+  }
+
+  waiting.forEach(
+    (token) => {
+
+      const item =
+        createQueueItem(
+          token
+        );
+
+      queue.appendChild(
+        item
+      );
+    }
+  );
 }
 </script>
+
 </body>
 </html>
