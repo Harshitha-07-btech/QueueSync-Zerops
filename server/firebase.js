@@ -1,40 +1,37 @@
-const path = require('path');
-const fs = require('fs');
+const { initializeApp, cert } = require("firebase-admin/app");
+const { getFirestore } = require("firebase-admin/firestore");
 
-const { initializeApp, cert } = require('firebase-admin/app');
-const { getFirestore } = require('firebase-admin/firestore');
+let app;
+let db;
 
-let serviceAccount;
+try {
+  let serviceAccount;
 
-if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-  console.log('Using Firebase credentials from environment variable');
+  // Zerops / production
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    serviceAccount = JSON.parse(
+      process.env.FIREBASE_SERVICE_ACCOUNT_JSON
+    );
+  } 
+  // Local development
+  else {
+    const path = require("path");
 
-  serviceAccount = JSON.parse(
-    process.env.FIREBASE_SERVICE_ACCOUNT_JSON
-  );
-} else {
-  const localKeyPath = path.join(
-    __dirname,
-    '..',
-    'serviceAccountKey.json'
-  );
-
-  if (!fs.existsSync(localKeyPath)) {
-    throw new Error(
-      'Firebase service account credentials not found'
+    serviceAccount = require(
+      path.join(__dirname, "..", "serviceAccountKey.json")
     );
   }
 
-  console.log('Using local serviceAccountKey.json');
+  app = initializeApp({
+    credential: cert(serviceAccount),
+  });
 
-  serviceAccount = require(localKeyPath);
+  db = getFirestore(app);
+
+  console.log("Firestore: CONNECTED");
+} catch (error) {
+  console.error("Firestore initialization failed:", error);
 }
-
-const app = initializeApp({
-  credential: cert(serviceAccount),
-});
-
-const db = getFirestore(app);
 
 module.exports = {
   app,
